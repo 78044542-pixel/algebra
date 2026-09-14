@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nitro Math Runner - CIMA Grand Prix (Maratón Algebraica)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for Audio Synth -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- KaTeX for Math LaTeX Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nitro: '#ff5500',
+                        batteryGreen: '#00ff66',
+                        batteryRed: '#ff2255',
+                        cyberDark: '#0b0d17',
+                        cyberCard: '#151828',
+                        cyberAccent: '#00f0ff'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        rajdhani: ['Rajdhani', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #070810;
+            color: #ffffff;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+
+        .glow-orange { box-shadow: 0 0 25px rgba(255, 85, 0, 0.6); }
+        .glow-cyan { box-shadow: 0 0 25px rgba(0, 240, 255, 0.5); }
+        .glow-green { box-shadow: 0 0 25px rgba(0, 255, 102, 0.5); }
+
+        @keyframes speedLines {
+            0% { background-position: 0 0; }
+            100% { background-position: -1000px 0; }
+        }
+        .speed-overlay {
+            background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 2px, transparent 2px, transparent 40px);
+            animation: speedLines 0.5s linear infinite;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f111e; }
+        ::-webkit-scrollbar-thumb { background: #00f0ff; border-radius: 4px; }
+
+        .katex-display { margin: 0.5em 0 !important; }
+        .katex { font-size: 1.15em !important; }
+    </style>
+</head>
+<body class="bg-cyberDark min-h-screen flex flex-col justify-between text-gray-100">
+
+    <!-- HEADER & TOP NAVIGATION -->
+    <header class="bg-cyberCard/90 backdrop-blur-md border-b border-gray-800 sticky top-0 z-40 px-4 py-3 shadow-xl">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-nitro to-yellow-400 flex items-center justify-center font-orbitron font-black text-xl text-black shadow-lg shadow-orange-500/30">
+                    <i class="fa-solid fa-bolt text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-orbitron font-black text-lg md:text-2xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-300 to-cyan-400">
+                        NITRO MATH <span class="text-xs text-orange-400 border border-orange-500/50 px-2 py-0.5 rounded-full uppercase tracking-normal">MODO MARATÓN CIMA</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">Colegio CIMA - Álgebra: Productos Notables II</p>
+                </div>
+            </div>
+
+            <!-- In-Game Stats HUD -->
+            <div id="hudStats" class="hidden flex items-center gap-3 md:gap-6 bg-black/60 px-4 py-2 rounded-2xl border border-gray-700/60 shadow-inner">
+                <!-- Battery Meter -->
+                <div class="flex items-center gap-2">
+                    <i id="batteryIcon" class="fa-solid fa-battery-full text-batteryGreen text-lg"></i>
+                    <div class="w-28 md:w-36 bg-gray-800 h-4 rounded-full overflow-hidden p-0.5 border border-gray-600 relative">
+                        <div id="batteryBar" class="bg-gradient-to-r from-emerald-500 to-batteryGreen h-full rounded-full transition-all duration-300 w-full"></div>
+                        <span id="batteryText" class="absolute inset-0 flex items-center justify-center text-[10px] font-orbitron font-bold text-white drop-shadow">100%</span>
+                    </div>
+                </div>
+
+                <!-- Shield Badge -->
+                <div id="shieldHud" class="hidden items-center gap-1 bg-cyan-950/80 border border-cyan-500/50 px-2 py-0.5 rounded-lg text-xs text-cyan-300 font-bold">
+                    <i class="fa-solid fa-shield-halved text-cyan-400 animate-pulse"></i> ESCUDO
+                </div>
+
+                <!-- Level & Distance -->
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-flag-checkered text-cyan-400"></i>
+                    <div>
+                        <div id="levelHudText" class="text-[10px] text-gray-400 uppercase">Nivel 1</div>
+                        <div id="distanceText" class="font-orbitron font-bold text-xs md:text-sm text-cyan-300">0 / 3000m</div>
+                    </div>
+                </div>
+
+                <!-- Coins -->
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-coins text-yellow-400 animate-bounce"></i>
+                    <span id="coinsText" class="font-orbitron font-bold text-xs md:text-sm text-yellow-400">0</span>
+                </div>
+            </div>
+
+            <!-- Navigation Controls -->
+            <div class="flex items-center gap-2">
+                <button id="btnSound" onclick="toggleSound()" class="p-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition border border-gray-700" title="Audio">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+                <button id="btnShop" onclick="openShopModal()" class="hidden px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow transition text-xs md:text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span class="hidden md:inline">Tienda / Garaje</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto w-full flex-1 p-3 md:p-6 flex flex-col justify-center">
+
+        <!-- SCREEN 1: START & SELECTION MENU -->
+        <div id="screenStart" class="max-w-4xl mx-auto w-full text-center py-6 px-4 md:px-8 bg-cyberCard/90 border border-gray-800 rounded-3xl backdrop-blur shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-24 -left-24 w-60 h-60 bg-nitro/20 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-24 -right-24 w-60 h-60 bg-cyan-500/20 rounded-full blur-3xl"></div>
+
+            <div class="relative z-10">
+                <div class="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-semibold text-xs mb-3">
+                    <i class="fa-solid fa-battery-full text-batteryGreen"></i> Batería Optimizada de Larga Duración + Renderizado Matemático Claro
+                </div>
+
+                <h2 class="font-orbitron text-2xl md:text-4xl font-black text-white tracking-wide mb-2">
+                    MARATÓN DE ÁLGEBRA <span class="text-transparent bg-clip-text bg-gradient-to-r from-nitro via-yellow-400 to-cyan-400">CIMA GRAND PRIX</span>
+                </h2>
+                <p class="text-gray-300 max-w-2xl mx-auto text-xs md:text-sm mb-6">
+                    Recorre pistas de larga distancia. Al entrar a los Pits resolverás problemas de la <strong>Ficha CIMA de Productos Notables II</strong> expresados con notación matemática limpia ($\dfrac{a}{b}$) y explicaciones paso a paso.
+                </p>
+
+                <!-- STEP A: SELECT CHARACTER -->
+                <div class="mb-6">
+                    <h3 class="font-orbitron text-xs md:text-sm uppercase tracking-wider text-cyan-400 mb-3 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-user-ninja"></i> 1. Elige tu Runner
+                    </h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
+                        <button onclick="selectKart('crash')" id="char-crash" class="char-option p-3 bg-gray-800/80 hover:bg-gray-700/80 border-2 border-nitro rounded-2xl transition flex flex-col items-center gap-1">
+                            <span class="text-4xl">🦊</span>
+                            <span class="font-bold text-xs text-orange-300">Crash Nitro</span>
+                            <span class="text-[10px] text-gray-400">Salto Potente + Doble Salto</span>
+                        </button>
+                        <button onclick="selectKart('cyber')" id="char-cyber" class="char-option p-3 bg-gray-800/80 hover:bg-gray-700/80 border-2 border-transparent rounded-2xl transition flex flex-col items-center gap-1">
+                            <span class="text-4xl">🤖</span>
+                            <span class="font-bold text-xs text-cyan-300">Cyber Bot</span>
+                            <span class="text-[10px] text-gray-400">Escudo Anti-Impactos</span>
+                        </button>
+                        <button onclick="selectKart('falcon')" id="char-falcon" class="char-option p-3 bg-gray-800/80 hover:bg-gray-700/80 border-2 border-transparent rounded-2xl transition flex flex-col items-center gap-1">
+                            <span class="text-4xl">🚀</span>
+                            <span class="font-bold text-xs text-yellow-300">Falcon Jet</span>
+                            <span class="text-[10px] text-gray-400">Batería Extendida +40%</span>
+                        </button>
+                        <button onclick="selectKart('puma')" id="char-puma" class="char-option p-3 bg-gray-800/80 hover:bg-gray-700/80 border-2 border-transparent rounded-2xl transition flex flex-col items-center gap-1">
+                            <span class="text-4xl">🐆</span>
+                            <span class="font-bold text-xs text-emerald-300">Puma CIMA</span>
+                            <span class="text-[10px] text-gray-400">Bonus de Monedas Extra</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP B: SELECT LEVEL -->
+                <div class="mb-6">
+                    <h3 class="font-orbitron text-xs md:text-sm uppercase tracking-wider text-amber-400 mb-3 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-layer-group"></i> 2. Elige el Circuito (Distancias Extendidas)
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto text-left">
+                        <div id="lvlCard-1" onclick="selectLevel(1)" class="level-card p-3 rounded-2xl bg-gray-800/80 border-2 border-cyan-400 cursor-pointer transition hover:border-cyan-300">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-orbitron font-bold text-xs text-cyan-300">NIVEL 1 (3,000m)</span>
+                                <i class="fa-solid fa-star text-yellow-400 text-xs"></i>
+                            </div>
+                            <h4 class="font-bold text-sm text-white">Legendre & Binomios</h4>
+                            <p class="text-[11px] text-gray-400 mt-1">Identidades de Legendre y productos de la Ficha CIMA 01 a 05.</p>
+                        </div>
+
+                        <div id="lvlCard-2" onclick="selectLevel(2)" class="level-card p-3 rounded-2xl bg-gray-800/80 border-2 border-transparent cursor-pointer transition hover:border-purple-400">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-orbitron font-bold text-xs text-purple-300">NIVEL 2 (6,000m)</span>
+                                <i class="fa-solid fa-fire text-orange-400 text-xs"></i>
+                            </div>
+                            <h4 class="font-bold text-sm text-white">Binomio al Cubo & Cauchy</h4>
+                            <p class="text-[11px] text-gray-400 mt-1">Cajas de Quinua Juliaca, $(x+y)^3$ e Identidad de Cauchy.</p>
+                        </div>
+
+                        <div id="lvlCard-3" onclick="selectLevel(3)" class="level-card p-3 rounded-2xl bg-gray-800/80 border-2 border-transparent cursor-pointer transition hover:border-amber-400">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-orbitron font-bold text-xs text-amber-300">NIVEL 3 (9,000m)</span>
+                                <i class="fa-solid fa-bolt text-amber-400 text-xs"></i>
+                            </div>
+                            <h4 class="font-bold text-sm text-white">Trinomio & Condicionales</h4>
+                            <p class="text-[11px] text-gray-400 mt-1">Mercado Chiclayo, $(a+b+c)^2$ y la condición $a+b+c=0$.</p>
+                        </div>
+
+                        <div id="lvlCard-4" onclick="selectLevel(4)" class="level-card p-3 rounded-2xl bg-gray-800/80 border-2 border-transparent cursor-pointer transition hover:border-emerald-400">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-orbitron font-bold text-xs text-emerald-300">NIVEL 4 (12,000m)</span>
+                                <i class="fa-solid fa-trophy text-amber-400 text-xs"></i>
+                            </div>
+                            <h4 class="font-bold text-sm text-white">Mega Maratón CIMA</h4>
+                            <p class="text-[11px] text-gray-400 mt-1">Desafíos de agrupación avanzada (Ejercicios 06 al 09 y Tarea).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                    <button onclick="startGame()" class="w-full sm:w-auto px-10 py-3.5 bg-gradient-to-r from-nitro via-orange-500 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-black font-orbitron font-black text-lg md:text-xl rounded-2xl shadow-xl hover:shadow-orange-500/40 transform hover:-translate-y-1 transition active:translate-y-0">
+                        <i class="fa-solid fa-play mr-2"></i> ¡INICIAR MARATÓN!
+                    </button>
+                    <button onclick="openPracticeModal()" class="w-full sm:w-auto px-6 py-3.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 font-orbitron font-bold text-sm rounded-2xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-book-open text-cyan-400"></i> Repasar Solucionario CIMA
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: GAMEPLAY RUNNER & PIT STOP -->
+        <div id="screenGame" class="hidden flex-1 flex flex-col gap-4">
+            
+            <!-- Canvas Side-Scroll Runner Area -->
+            <div class="relative bg-black rounded-3xl border border-gray-800 overflow-hidden shadow-2xl h-64 md:h-80 flex flex-col justify-end">
+                <canvas id="runnerCanvas" class="w-full h-full absolute inset-0 cursor-pointer"></canvas>
+                <div class="speed-overlay absolute inset-0 pointer-events-none"></div>
+
+                <!-- Jump Instruction Banner -->
+                <div class="absolute top-3 left-4 bg-cyberCard/80 backdrop-blur border border-gray-700 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-hand-pointer text-cyan-400 text-lg animate-bounce"></i>
+                    <div class="text-xs">
+                        <span class="font-bold text-white">TOCA O PRESIONA ESPACIO PARA SALTAR (PERMITE DOBLE SALTO)</span>
+                        <div class="text-[10px] text-batteryGreen font-semibold">🔋 Rendimiento de Batería Sostenido</div>
+                    </div>
+                </div>
+
+                <!-- Battery Alert Overlay -->
+                <div id="lowBatteryAlert" class="hidden absolute inset-0 bg-red-900/40 border-4 border-batteryRed pointer-events-none flex items-center justify-center animate-pulse">
+                    <span class="font-orbitron font-black text-xl md:text-3xl text-red-400 tracking-widest bg-black/90 px-6 py-3 rounded-2xl border border-red-500">
+                        <i class="fa-solid fa-triangle-exclamation mr-2"></i> ¡ENTRANDO A PITS DE ÁLGEBRA!
+                    </span>
+                </div>
+            </div>
+
+            <!-- Touch Jump Controls for Mobile -->
+            <div class="flex justify-between items-center sm:hidden px-2">
+                <button onclick="triggerJump()" class="w-full py-3.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-orbitron font-bold rounded-2xl text-center active:scale-95 shadow-lg">
+                    <i class="fa-solid fa-circle-arrow-up text-xl mr-2"></i> ¡TOCA AQUÍ PARA SALTAR!
+                </button>
+            </div>
+
+            <!-- PIT-STOP ALGEBRA QUESTION PORTAL -->
+            <div id="pitStopPortal" class="hidden bg-cyberCard border-2 border-cyan-500 rounded-3xl p-4 md:p-6 backdrop-blur shadow-2xl flex flex-col justify-between min-h-[360px] animate-fade-in">
+                
+                <!-- Question Header -->
+                <div class="flex justify-between items-center border-b border-gray-800 pb-3 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span id="topicBadge" class="px-3 py-1 bg-cyan-950 border border-cyan-800 text-cyan-400 rounded-lg text-xs font-semibold">
+                            CIMA - Productos Notables II
+                        </span>
+                        <span class="text-xs text-gray-400">Parada Técnica de Álgebra</span>
+                    </div>
+                    <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+                        <i class="fa-solid fa-battery-charging"></i> Responde correctamente para recargar +70% Batería
+                    </div>
+                </div>
+
+                <!-- Question Prompt & LaTeX Formula -->
+                <div class="my-auto text-center py-2">
+                    <div id="questionPrompt" class="text-base md:text-lg font-medium text-gray-100 mb-2">
+                        <!-- Question Text -->
+                    </div>
+                    <div id="mathFormulaContainer" class="py-3 text-xl md:text-3xl font-bold text-amber-300 min-h-[60px] flex items-center justify-center">
+                        <!-- KaTeX math rendering target -->
+                    </div>
+                </div>
+
+                <!-- Options Grid -->
+                <div id="optionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <!-- Option Buttons -->
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL DE RESOLUCIÓN DETALLADA PASO A PASO -->
+        <div id="resolutionModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-cyberCard border-2 border-orange-500 rounded-3xl max-w-2xl w-full p-5 md:p-7 relative overflow-hidden shadow-2xl">
+                <!-- Header Status -->
+                <div id="resolutionHeader" class="flex items-center gap-3 border-b border-gray-800 pb-4 mb-4">
+                    <div id="resBadgeIcon" class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl font-bold">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <div>
+                        <h3 id="resHeaderTitle" class="font-orbitron font-bold text-lg md:text-xl text-white">¡RESPUESTA CORRECTA!</h3>
+                        <p id="resHeaderSub" class="text-xs text-gray-300">Explicación paso a paso del ejercicio CIMA:</p>
+                    </div>
+                </div>
+
+                <!-- Resolution Steps Content -->
+                <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-4 mb-5 max-h-[55vh] overflow-y-auto">
+                    <h4 class="font-orbitron text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-book-bookmark"></i> DEMOSTRACIÓN ALGEBRAICA PASO A PASO:
+                    </h4>
+                    
+                    <div id="resolutionFormulaBox" class="bg-black/60 p-3 rounded-xl mb-4 text-center border border-gray-800 min-h-[50px] flex items-center justify-center">
+                        <!-- LaTeX Original Formula -->
+                    </div>
+
+                    <div id="resolutionStepsText" class="text-sm text-gray-200 leading-relaxed space-y-2">
+                        <!-- Steps HTML -->
+                    </div>
+                </div>
+
+                <!-- Modal Action Footer -->
+                <div class="flex justify-between items-center pt-2">
+                    <div id="resBatteryReward" class="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                        <i class="fa-solid fa-battery-full text-lg"></i> Batería +70%
+                    </div>
+                    <button onclick="continueAfterResolution()" class="px-6 py-3 bg-gradient-to-r from-nitro to-amber-500 hover:from-orange-500 hover:to-amber-400 text-black font-orbitron font-black text-sm rounded-xl shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0">
+                        <i class="fa-solid fa-forward mr-2"></i> ¡REANUDAR CARRERA!
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: RESULTS / VICTORY -->
+        <div id="screenResults" class="hidden max-w-2xl mx-auto w-full text-center py-8 px-6 bg-cyberCard/90 border border-gray-800 rounded-3xl backdrop-blur shadow-2xl">
+            <div id="resultHeaderIcon" class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-nitro to-yellow-400 flex items-center justify-center text-4xl text-black mb-4 font-black">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+
+            <h2 id="resultTitle" class="font-orbitron text-3xl md:text-4xl font-black text-white mb-2">¡MARATÓN CIMA COMPLETADA!</h2>
+            <p id="resultSubtitle" class="text-gray-300 text-sm md:text-base mb-6">¡Has recorrido todo el circuito resolviendo los problemas algebraicos!</p>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-2xl">
+                    <div class="text-xs text-gray-400">Distancia Recorrida</div>
+                    <div id="resDistance" class="font-orbitron font-bold text-lg text-cyan-400">3000 m</div>
+                </div>
+                <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-2xl">
+                    <div class="text-xs text-gray-400">Precisión</div>
+                    <div id="resAccuracy" class="font-orbitron font-bold text-lg text-emerald-400">100%</div>
+                </div>
+                <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-2xl">
+                    <div class="text-xs text-gray-400">Preguntas Resueltas</div>
+                    <div id="resQuestions" class="font-orbitron font-bold text-lg text-yellow-400">12/12</div>
+                </div>
+                <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-2xl">
+                    <div class="text-xs text-gray-400">Monedas Ganadas</div>
+                    <div id="resCoins" class="font-orbitron font-bold text-lg text-amber-400">+500 🪙</div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <button onclick="returnToMenu()" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-xl font-bold transition">
+                    <i class="fa-solid fa-house mr-2"></i> Menú Principal
+                </button>
+                <button onclick="startGame()" class="px-8 py-3 bg-gradient-to-r from-nitro to-amber-500 hover:from-orange-500 hover:to-amber-400 text-black font-orbitron font-bold rounded-xl shadow-lg transition">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> Correr Otra Vez
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- GARAGE & SHOP MODAL -->
+    <div id="shopModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-cyberCard border border-gray-700 rounded-3xl max-w-2xl w-full p-6 relative overflow-hidden shadow-2xl">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-orbitron font-bold text-xl text-white">Garaje & Tienda CIMA</h3>
+                        <p class="text-xs text-gray-400">Equipa mejoras para potenciar tu desempeño en la pista</p>
+                    </div>
+                </div>
+                <button onclick="closeShopModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <!-- Upgrades Grid -->
+            <div class="grid sm:grid-cols-2 gap-4 mb-6">
+                <!-- Capacidad Batería -->
+                <div class="bg-gray-800/60 border border-gray-700 p-4 rounded-2xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-batteryGreen flex items-center gap-1.5 text-sm">
+                                <i class="fa-solid fa-battery-full"></i> Super Tanque
+                            </span>
+                            <span id="lvlCapText" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">Nivel 1</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Aumenta la batería máxima en +40%.</p>
+                    </div>
+                    <button onclick="buyUpgrade('cap')" class="w-full py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl text-xs flex justify-between px-3 items-center">
+                        <span>Mejorar</span>
+                        <span id="costCapText">🪙 100</span>
+                    </button>
+                </div>
+
+                <!-- Impulso Salto -->
+                <div class="bg-gray-800/60 border border-gray-700 p-4 rounded-2xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-cyan-400 flex items-center gap-1.5 text-sm">
+                                <i class="fa-solid fa-arrows-up-to-line"></i> Impulso Salto
+                            </span>
+                            <span id="lvlJumpText" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">Nivel 1</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Saltos más altos para esquivar drones dobles.</p>
+                    </div>
+                    <button onclick="buyUpgrade('jump')" class="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl text-xs flex justify-between px-3 items-center">
+                        <span>Mejorar</span>
+                        <span id="costJumpText">🪙 120</span>
+                    </button>
+                </div>
+
+                <!-- Escudo Descarga -->
+                <div class="bg-gray-800/60 border border-gray-700 p-4 rounded-2xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-orange-400 flex items-center gap-1.5 text-sm">
+                                <i class="fa-solid fa-shield-halved"></i> Ahorro Eficiente
+                            </span>
+                            <span id="lvlDrainText" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">Nivel 1</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Reduce un 30% la velocidad de descarga de batería.</p>
+                    </div>
+                    <button onclick="buyUpgrade('drain')" class="w-full py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs flex justify-between px-3 items-center">
+                        <span>Mejorar</span>
+                        <span id="costDrainText">🪙 150</span>
+                    </button>
+                </div>
+
+                <!-- Multiplicador Monedas -->
+                <div class="bg-gray-800/60 border border-gray-700 p-4 rounded-2xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-yellow-400 flex items-center gap-1.5 text-sm">
+                                <i class="fa-solid fa-sack-dollar"></i> Multiplicador Monedas
+                            </span>
+                            <span id="lvlCoinsText" class="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">Nivel 1</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Gana 1.5x más monedas por respuesta correcta.</p>
+                    </div>
+                    <button onclick="buyUpgrade('coins')" class="w-full py-2 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-black font-bold rounded-xl text-xs flex justify-between px-3 items-center">
+                        <span>Mejorar</span>
+                        <span id="costCoinsText">🪙 200</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-2">
+                <div class="text-sm font-orbitron font-bold text-yellow-400">
+                    Monedas: <span id="shopCoinsText">0</span> 🪙
+                </div>
+                <button onclick="closeShopModal()" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold text-sm text-white">
+                    Cerrar Tienda
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRACTICE MODAL (SOLUCIONARIO INTERACTIVO FICHA CIMA) -->
+    <div id="practiceModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-cyberCard border border-cyan-500 rounded-3xl max-w-3xl w-full p-6 relative overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-4 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-orbitron font-bold text-xl text-white">Solucionario Ficha CIMA - Productos Notables II</h3>
+                        <p class="text-xs text-gray-400">Revisa la resolución completa con fracciones verticales limpias</p>
+                    </div>
+                </div>
+                <button onclick="closePracticeModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <div id="practiceList" class="flex-1 overflow-y-auto space-y-4 pr-2">
+                <!-- Practice items injected dynamically -->
+            </div>
+
+            <div class="pt-4 border-t border-gray-800 flex justify-end">
+                <button onclick="closePracticeModal()" class="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm rounded-xl">
+                    Entendido, Volver a la Carrera
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- EXPANDED CIMA ALGEBRA QUESTION BANK WITH VERIFIED LATEX FORMULAS ---
+        const levelQuestions = {
+            1: [ // LEVEL 1: BINOMIOS Y LEGENDRE
+                {
+                    topic: "Ejercicio-03 CIMA (Legendre de Resta)",
+                    prompt: "Simplifica la expresión $H$ dada en la ficha CIMA Ejercicio-03:",
+                    formula: "H = \\left(\\dfrac{3}{2}+\\dfrac{x}{3}\\right)^2 - \\left(\\dfrac{3}{2}-\\dfrac{x}{3}\\right)^2",
+                    options: ["2x", "x", "3x", "\\dfrac{3x}{2}"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Identificamos la 2.ª Identidad de Legendre de resta: $(a+b)^2 - (a-b)^2 = 4ab$.",
+                        "<strong>Paso 2:</strong> Asignamos $a = \\dfrac{3}{2}$ y $b = \\dfrac{x}{3}$.",
+                        "<strong>Paso 3:</strong> Sustituimos en la propiedad de Legendre: $H = 4 \\cdot \\left(\\dfrac{3}{2}\\right) \\cdot \\left(\\dfrac{x}{3}\\right)$.",
+                        "<strong>Paso 4:</strong> Simplificamos los factores: $H = 4 \\cdot \\dfrac{3x}{6} = 2x$."
+                    ]
+                },
+                {
+                    topic: "Ejercicio-04 CIMA (Legendre de Suma)",
+                    prompt: "Determina el valor numérico de $K$ del Ejercicio-04 CIMA:",
+                    formula: "K = (\\sqrt{11}+\\sqrt{7})^2 + (\\sqrt{11}-\\sqrt{7})^2",
+                    options: ["36", "18", "22", "14"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Aplicamos la 1.ª Identidad de Legendre de suma: $(a+b)^2 + (a-b)^2 = 2(a^2 + b^2)$.",
+                        "<strong>Paso 2:</strong> Asignamos $a = \\sqrt{11}$ y $b = \\sqrt{7}$.",
+                        "<strong>Paso 3:</strong> Reemplazamos en la fórmula: $K = 2\\left((\\sqrt{11})^2 + (\\sqrt{7})^2\\right) = 2(11 + 7)$.",
+                        "<strong>Paso 4:</strong> Calculamos: $K = 2(18) = 36$."
+                    ]
+                },
+                {
+                    topic: "Ejercicio-05 CIMA (Desarrollo)",
+                    prompt: "Halla el valor simplificado de $R$ del Ejercicio-05 CIMA:",
+                    formula: "R = (2a+4)(2a+2) - (2a+3)^2",
+                    options: ["-1", "1", "0", "2"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Multiplicamos los binomios: $(2a+4)(2a+2) = 4a^2 + 12a + 8$.",
+                        "<strong>Paso 2:</strong> Desarrollamos el binomio al cuadrado: $(2a+3)^2 = 4a^2 + 12a + 9$.",
+                        "<strong>Paso 3:</strong> Restamos ambas expresiones: $R = (4a^2 + 12a + 8) - (4a^2 + 12a + 9)$.",
+                        "<strong>Paso 4:</strong> Se cancelan $4a^2$ y $12a$: $R = 8 - 9 = -1$."
+                    ]
+                },
+                {
+                    topic: "Tarea 04 CIMA (Legendre Doble)",
+                    prompt: "Reduce la expresión $A$ de la tarea de la ficha CIMA:",
+                    formula: "A = \\dfrac{(2x+y)^2 - (2x-y)^2}{(x+y)^2 - (x-y)^2}",
+                    options: ["2", "1", "4", "\\dfrac{1}{2}"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> En el numerador aplicamos Legendre con $a=2x, b=y$: $4(2x)(y) = 8xy$.",
+                        "<strong>Paso 2:</strong> En el denominador aplicamos Legendre con $a=x, b=y$: $4(x)(y) = 4xy$.",
+                        "<strong>Paso 3:</strong> Dividimos numerador entre denominador: $A = \\dfrac{8xy}{4xy} = 2$."
+                    ]
+                },
+                {
+                    topic: "Tarea 03 CIMA (Binomios al Cuadrado)",
+                    prompt: "Descubre el valor simplificado de $E$ de la tarea CIMA:",
+                    formula: "E = (x+2)^2 - 2(x+1)^2 + x^2",
+                    options: ["2", "0", "1", "4"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Expandimos $(x+2)^2 = x^2 + 4x + 4$ y $(x+1)^2 = x^2 + 2x + 1$.",
+                        "<strong>Paso 2:</strong> Sustituimos en la expresión: $E = (x^2 + 4x + 4) - 2(x^2 + 2x + 1) + x^2$.",
+                        "<strong>Paso 3:</strong> Distribuimos el $-2$: $E = x^2 + 4x + 4 - 2x^2 - 4x - 2 + x^2$.",
+                        "<strong>Paso 4:</strong> Agrupamos términos semejantes: $(1-2+1)x^2 + (4-4)x + (4-2) = 2$."
+                    ]
+                }
+            ],
+            2: [ // LEVEL 2: CUBOS Y CAUCHY
+                {
+                    topic: "Situación Significativa Juliaca (Exportación Japón)",
+                    prompt: "Determina el polinomio del volumen de la caja de quinua Japón de arista $(x+3)$ cm:",
+                    formula: "V = (x + 3)^3",
+                    options: ["x^3 + 9x^2 + 27x + 27", "x^3 + 27", "x^3 + 9x + 27", "x^3 + 3x^2 + 9x + 27"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Aplicamos la fórmula del binomio al cubo: $(a+b)^3 = a^3 + 3a^2b + 3ab^2 + b^3$.",
+                        "<strong>Paso 2:</strong> Reemplazamos $a = x$ y $b = 3$.",
+                        "<strong>Paso 3:</strong> $V = x^3 + 3(x^2)(3) + 3(x)(3^2) + 3^3$.",
+                        "<strong>Paso 4:</strong> Operamos las potencias y productos: $V = x^3 + 9x^2 + 27x + 27$."
+                    ]
+                },
+                {
+                    topic: "Situación Significativa Juliaca (Mercado Local)",
+                    prompt: "Determina el polinomio del volumen de la caja económica de quinua de arista $(x-2)$ cm:",
+                    formula: "V = (x - 2)^3",
+                    options: ["x^3 - 6x^2 + 12x - 8", "x^3 - 8", "x^3 - 6x^2 - 12x - 8", "x^3 - 2x^2 + 4x - 8"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Binomio Diferencia al Cubo: $(a-b)^3 = a^3 - 3a^2b + 3ab^2 - b^3$.",
+                        "<strong>Paso 2:</strong> Reemplazamos $a = x$ y $b = 2$.",
+                        "<strong>Paso 3:</strong> $V = x^3 - 3(x^2)(2) + 3(x)(2^2) - 2^3$.",
+                        "<strong>Paso 4:</strong> Calculamos: $V = x^3 - 6x^2 + 12x - 8$."
+                    ]
+                },
+                {
+                    topic: "Identidad de Cauchy",
+                    prompt: "Si $x + y = 4$ y $xy = 2$, halla el valor numérico de $x^3 + y^3$:",
+                    formula: "(x + y)^3 = x^3 + y^3 + 3xy(x + y)",
+                    options: ["40", "52", "32", "64"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Escribimos la identidad semidesarrollada de Cauchy: $(x+y)^3 = x^3 + y^3 + 3xy(x+y)$.",
+                        "<strong>Paso 2:</strong> Sustituimos los valores dados ($x+y=4$ y $xy=2$): $4^3 = x^3 + y^3 + 3(2)(4)$.",
+                        "<strong>Paso 3:</strong> Resolvemos las operaciones: $64 = x^3 + y^3 + 24$.",
+                        "<strong>Paso 4:</strong> Despejamos la suma de cubos: $x^3 + y^3 = 64 - 24 = 40$."
+                    ]
+                },
+                {
+                    topic: "Suma de Cubos",
+                    prompt: "Efectúa el producto del binomio por el trinomio:",
+                    formula: "P = (x + 3)(x^2 - 3x + 9)",
+                    options: ["x^3 + 27", "x^3 - 27", "x^3 + 9x", "x^3 + 3"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Reconocemos el producto de Suma de Cubos: $(a+b)(a^2 - ab + b^2) = a^3 + b^3$.",
+                        "<strong>Paso 2:</strong> Verificamos $a=x$ y $b=3$. El trinomio tiene la forma $x^2 - (x)(3) + 3^2 = x^2 - 3x + 9$.",
+                        "<strong>Paso 3:</strong> Aplicamos la equivalencia directa: $P = x^3 + 3^3 = x^3 + 27$."
+                    ]
+                },
+                {
+                    topic: "Tarea 01 CIMA (Radicales Anidados)",
+                    prompt: "Calcula el valor simplificado de $Q$ de la Tarea 01 CIMA:",
+                    formula: "Q = \\left(\\sqrt{5+\\sqrt{24}} + \\sqrt{5-\\sqrt{24}}\\right)^2",
+                    options: ["12", "10", "14", "8"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Elevamos al cuadrado como binomio $(m+n)^2 = m^2 + n^2 + 2mn$.",
+                        "<strong>Paso 2:</strong> Suma de cuadrados de radicales: $m^2+n^2 = (5+\\sqrt{24}) + (5-\\sqrt{24}) = 10$.",
+                        "<strong>Paso 3:</strong> Doble producto: $2mn = 2\\sqrt{(5+\\sqrt{24})(5-\\sqrt{24})} = 2\\sqrt{25-24} = 2(1) = 2$.",
+                        "<strong>Paso 4:</strong> Sumamos ambos resultados: $Q = 10 + 2 = 12$."
+                    ]
+                }
+            ],
+            3: [ // LEVEL 3: TRINOMIO Y CONDICIONALES
+                {
+                    topic: "Situación Significativa Chiclayo",
+                    prompt: "En el trinomio al cuadrado $(x + 2y + 5)^2$, ¿cuál es el doble producto del primer y segundo término?",
+                    formula: "(a+b+c)^2 = a^2+b^2+c^2 + 2ab + 2bc + 2ac",
+                    options: ["4xy", "2xy", "10x", "20y"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> En el desarrollo del trinomio al cuadrado, los dobles productos son $2ab, 2bc, 2ac$.",
+                        "<strong>Paso 2:</strong> Con $a=x$ y $b=2y$, el primer doble producto es $2(x)(2y)$.",
+                        "<strong>Paso 3:</strong> Multiplicamos los coeficientes: $2 \\cdot 2 \\cdot x \\cdot y = 4xy$."
+                    ]
+                },
+                {
+                    topic: "Trinomio al Cuadrado",
+                    prompt: "Si $a + b + c = 6$ y $ab + bc + ac = 11$, halla $a^2 + b^2 + c^2$:",
+                    formula: "(a + b + c)^2 = a^2 + b^2 + c^2 + 2(ab + bc + ac)",
+                    options: ["14", "25", "18", "22"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Reemplazamos los datos en la propiedad: $6^2 = (a^2+b^2+c^2) + 2(11)$.",
+                        "<strong>Paso 2:</strong> Elevamos al cuadrado y multiplicamos: $36 = (a^2+b^2+c^2) + 22$.",
+                        "<strong>Paso 3:</strong> Despejamos la suma de cuadrados: $a^2+b^2+c^2 = 36 - 22 = 14$."
+                    ]
+                },
+                {
+                    topic: "Identidad Condicional (Suma Cero)",
+                    prompt: "Si $a + b + c = 0$ y $abc = 5$, encuentra $a^3 + b^3 + c^3$:",
+                    formula: "\\text{Si } a+b+c=0 \\implies a^3+b^3+c^3 = 3abc",
+                    options: ["15", "10", "25", "0"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Aplicamos la Identidad Condicional: Si la suma de tres variables es 0, la suma de sus cubos es igual al triple producto $3abc$.",
+                        "<strong>Paso 2:</strong> Sustituimos el valor $abc = 5$: $a^3+b^3+c^3 = 3(5) = 15$."
+                    ]
+                },
+                {
+                    topic: "Ejercicio-09 CIMA (Condicional Especial)",
+                    prompt: "Si $\\dfrac{x}{y} + \\dfrac{y}{x} = 2$, halla $M = \\dfrac{4x^2+5xy}{3xy-y^2}$:",
+                    formula: "\\dfrac{x}{y} + \\dfrac{y}{x} = 2 \\implies x = y",
+                    options: ["\\dfrac{9}{2}", "3", "4", "\\dfrac{7}{2}"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Operamos la condición: $\\dfrac{x^2+y^2}{xy} = 2 \\implies x^2+y^2=2xy \\implies (x-y)^2=0 \\implies x=y$.",
+                        "<strong>Paso 2:</strong> Sustituimos $y = x$ en la expresión $M$: $M = \\dfrac{4x^2 + 5x(x)}{3x(x) - x^2}$.",
+                        "<strong>Paso 3:</strong> Sumamos y restamos en numerador y denominador: $M = \\dfrac{4x^2 + 5x^2}{3x^2 - x^2} = \\dfrac{9x^2}{2x^2}$.",
+                        "<strong>Paso 4:</strong> Cancelamos $x^2$: $M = \\dfrac{9}{2}$."
+                    ]
+                },
+                {
+                    topic: "Tarea 02 CIMA (Condicional)",
+                    prompt: "Si $\\dfrac{a}{b} + \\dfrac{b}{a} = 2$, halla $N = \\dfrac{5a^2-ab}{ab+b^2}$:",
+                    formula: "\\dfrac{a}{b} + \\dfrac{b}{a} = 2 \\implies a = b",
+                    options: ["2", "1", "3", "\\dfrac{5}{2}"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> La condición $\\dfrac{a}{b} + \\dfrac{b}{a} = 2$ demuestra que $a = b$.",
+                        "<strong>Paso 2:</strong> Reemplazamos $b$ por $a$ en $N$: $N = \\dfrac{5a^2 - a(a)}{a(a) + a^2}$.",
+                        "<strong>Paso 3:</strong> Reducimos los términos: $N = \\dfrac{5a^2 - a^2}{a^2 + a^2} = \\dfrac{4a^2}{2a^2} = 2$."
+                    ]
+                }
+            ],
+            4: [ // LEVEL 4: DESAFÍOS Y TAREAS AVANZADAS
+                {
+                    topic: "Ejercicio-06 CIMA (Agrupación Estratégica)",
+                    prompt: "Si $x^2 + 3x + 1 = 0$, halla el valor numérico de $H$:",
+                    formula: "H = (x+5)(x+4)(x-1)(x-2)",
+                    options: ["55", "45", "60", "50"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Despejamos de la condición dada: $x^2 + 3x + 1 = 0 \\implies x^2 + 3x = -1$.",
+                        "<strong>Paso 2:</strong> Agrupamos factores convenientemente para obtener $x^2+3x$: $H = [(x+5)(x-2)] \\cdot [(x+4)(x-1)]$.",
+                        "<strong>Paso 3:</strong> Multiplicamos los pares: $(x+5)(x-2) = x^2+3x-10$ y $(x+4)(x-1) = x^2+3x-4$.",
+                        "<strong>Paso 4:</strong> Reemplazamos $x^2+3x = -1$: $H = (-1-10)(-1-4) = (-11)(-5) = 55$."
+                    ]
+                },
+                {
+                    topic: "Ejercicio-07 CIMA (Agrupación Estratégica)",
+                    prompt: "Si $x^2 + 4x + 2 = 0$, halla el valor numérico de $T$:",
+                    formula: "T = (x+5)(x+6)(x-1)(x-2)",
+                    options: ["98", "84", "100", "92"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Despejamos de la condición dada: $x^2 + 4x + 2 = 0 \\implies x^2 + 4x = -2$.",
+                        "<strong>Paso 2:</strong> Agrupamos factores por término común: $T = [(x+5)(x-1)] \\cdot [(x+6)(x-2)]$.",
+                        "<strong>Paso 3:</strong> Multiplicamos: $(x+5)(x-1) = x^2+4x-5$ y $(x+6)(x-2) = x^2+4x-12$.",
+                        "<strong>Paso 4:</strong> Reemplazamos $x^2+4x = -2$: $T = (-2-5)(-2-12) = (-7)(-14) = 98$."
+                    ]
+                },
+                {
+                    topic: "Ejercicio-08 CIMA (Radicales Anidados)",
+                    prompt: "Calcula el valor numérico de $R$ del Ejercicio-08 CIMA:",
+                    formula: "R = \\left(\\sqrt{6+\\sqrt{20}} + \\sqrt{6-\\sqrt{20}}\\right)^2",
+                    options: ["20", "16", "24", "18"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Desarrollamos el cuadrado del binomio: $(a+b)^2 = a^2 + b^2 + 2ab$.",
+                        "<strong>Paso 2:</strong> Suma de cuadrados: $a^2+b^2 = (6+\\sqrt{20}) + (6-\\sqrt{20}) = 12$.",
+                        "<strong>Paso 3:</strong> Doble producto de conjugados: $2ab = 2\\sqrt{(6+\\sqrt{20})(6-\\sqrt{20})} = 2\\sqrt{36-20} = 2\\sqrt{16} = 2(4) = 8$.",
+                        "<strong>Paso 4:</strong> Sumamos ambos valores: $R = 12 + 8 = 20$."
+                    ]
+                },
+                {
+                    topic: "Desafío Central CIMA (Modelado Cajas)",
+                    prompt: "Determina la diferencia de volúmenes $\\Delta V = (x+3)^3 - (x-2)^3$ entre el empaque Japón y el Local:",
+                    formula: "\\Delta V = (x+3)^3 - (x-2)^3",
+                    options: ["15x^2 + 15x + 35", "15x^2 + 35", "5x^2 + 15x + 35", "15x^2 + 15x + 19"],
+                    correct: 0,
+                    explanationSteps: [
+                        "<strong>Paso 1:</strong> Desarrollamos el empaque Japón: $(x+3)^3 = x^3 + 9x^2 + 27x + 27$.",
+                        "<strong>Paso 2:</strong> Desarrollamos el empaque Local: $(x-2)^3 = x^3 - 6x^2 + 12x - 8$.",
+                        "<strong>Paso 3:</strong> Restamos término a término: $(x^3 - x^3) + (9x^2 - (-6x^2)) + (27x - 12x) + (27 - (-8))$.",
+                        "<strong>Paso 4:</strong> Obtenemos el polinomio final: $\\Delta V = 15x^2 + 15x + 35$."
+                    ]
+                }
+            ]
+        };
+
+        let gameState = {
+            active: false,
+            level: 1,
+            kart: 'crash',
+            battery: 150,
+            maxBattery: 150,
+            drainRate: 0.14, // DRENAJE OPTIMIZADO Y MÁS LENTO (La batería dura bastante más)
+            distance: 0,
+            targetDistance: 3000,
+            coins: 0,
+            soundEnabled: true,
+            currentQuestion: null,
+            totalAnswered: 0,
+            correctCount: 0,
+            hasShield: false,
+            upgrades: { capLvl: 1, jumpLvl: 1, drainLvl: 1, coinsLvl: 1 }
+        };
+
+        // Physics Runner Engine
+        let runner = {
+            x: 60,
+            y: 0,
+            width: 40,
+            height: 50,
+            velocityY: 0,
+            gravity: 0.65,
+            jumpStrength: -13.5,
+            isJumping: false,
+            jumpCount: 0,
+            emoji: '🦊'
+        };
+
+        let obstacles = [];
+        let powerups = [];
+        let canvas, ctx;
+        let synthSound;
+
+        function initAudio() {
+            if (!synthSound && window.Tone) {
+                synthSound = new Tone.PolySynth(Tone.Synth).toDestination();
+                synthSound.volume.value = -12;
+            }
+        }
+
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            initAudio();
+            try {
+                if (type === 'jump') synthSound.triggerAttackRelease(["C4", "E4"], "16n");
+                if (type === 'doublejump') synthSound.triggerAttackRelease(["G4", "C5"], "16n");
+                if (type === 'correct') synthSound.triggerAttackRelease(["C5", "E5", "G5"], "8n");
+                if (type === 'wrong') synthSound.triggerAttackRelease(["C3", "F#3"], "8n");
+                if (type === 'coin') synthSound.triggerAttackRelease(["B5"], "16n");
+                if (type === 'shield') synthSound.triggerAttackRelease(["E5", "B5"], "8n");
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            document.getElementById('soundIcon').className = gameState.soundEnabled ? "fa-solid fa-volume-high" : "fa-solid fa-volume-xmark text-red-400";
+        }
+
+        function selectKart(kartId) {
+            gameState.kart = kartId;
+            document.querySelectorAll('.char-option').forEach(btn => btn.classList.replace('border-nitro', 'border-transparent'));
+            document.getElementById(`char-${kartId}`).classList.replace('border-transparent', 'border-nitro');
+
+            if (kartId === 'crash') runner.emoji = '🦊';
+            if (kartId === 'cyber') runner.emoji = '🤖';
+            if (kartId === 'falcon') runner.emoji = '🚀';
+            if (kartId === 'puma') runner.emoji = '🐆';
+        }
+
+        function selectLevel(lvlNum) {
+            gameState.level = lvlNum;
+            document.querySelectorAll('.level-card').forEach(c => c.classList.replace('border-cyan-400', 'border-transparent'));
+            document.getElementById(`lvlCard-${lvlNum}`).classList.replace('border-transparent', 'border-cyan-400');
+            
+            gameState.targetDistance = lvlNum * 3000;
+        }
+
+        function renderMath(element, text, isDisplay = false) {
+            if (!element) return;
+            element.innerHTML = '';
+            try {
+                katex.render(text, element, { throwOnError: false, displayMode: isDisplay });
+            } catch (e) {
+                element.innerText = text;
+            }
+        }
+
+        function startGame() {
+            gameState.active = true;
+            gameState.maxBattery = 150 + (gameState.upgrades.capLvl - 1) * 40;
+            gameState.battery = gameState.maxBattery + (gameState.kart === 'falcon' ? 40 : 0);
+            gameState.hasShield = (gameState.kart === 'cyber');
+            gameState.distance = 0;
+            gameState.correctCount = 0;
+            gameState.totalAnswered = 0;
+            obstacles = [];
+            powerups = [];
+
+            document.getElementById('screenStart').classList.add('hidden');
+            document.getElementById('screenResults').classList.add('hidden');
+            document.getElementById('screenGame').classList.remove('hidden');
+            document.getElementById('hudStats').classList.remove('hidden');
+            document.getElementById('hudStats').classList.add('flex');
+            document.getElementById('btnShop').classList.remove('hidden');
+            document.getElementById('pitStopPortal').classList.add('hidden');
+
+            document.getElementById('levelHudText').innerText = `NIVEL ${gameState.level}`;
+            updateShieldHud();
+
+            initCanvas();
+            updateHUD();
+
+            window.removeEventListener('keydown', handleKeyDown);
+            window.addEventListener('keydown', handleKeyDown);
+            
+            canvas.removeEventListener('mousedown', triggerJump);
+            canvas.addEventListener('mousedown', triggerJump);
+
+            requestAnimationFrame(gameRunnerLoop);
+        }
+
+        function handleKeyDown(e) {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                triggerJump();
+            }
+        }
+
+        function triggerJump() {
+            if (!gameState.active) return;
+
+            const bonusJump = (gameState.upgrades.jumpLvl - 1) * 1.2;
+            
+            if (!runner.isJumping) {
+                playSound('jump');
+                runner.velocityY = runner.jumpStrength - bonusJump;
+                runner.isJumping = true;
+                runner.jumpCount = 1;
+            } else if (runner.jumpCount === 1) {
+                playSound('doublejump');
+                runner.velocityY = (runner.jumpStrength - bonusJump) * 0.85;
+                runner.jumpCount = 2;
+            }
+        }
+
+        function initCanvas() {
+            canvas = document.getElementById('runnerCanvas');
+            ctx = canvas.getContext('2d');
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            runner.y = canvas.height - runner.height - 30;
+        }
+
+        let frameCounter = 0;
+
+        function gameRunnerLoop() {
+            if (!gameState.active) return;
+
+            frameCounter++;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const groundY = canvas.height - 30;
+
+            // 1. Sky Gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, '#0a0d1a');
+            skyGrad.addColorStop(1, '#181b2e');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Track Floor
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, groundY, canvas.width, 30);
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, groundY, canvas.width, 30);
+
+            // 3. Gravity & Physics
+            runner.velocityY += runner.gravity;
+            runner.y += runner.velocityY;
+
+            if (runner.y >= groundY - runner.height) {
+                runner.y = groundY - runner.height;
+                runner.velocityY = 0;
+                runner.isJumping = false;
+                runner.jumpCount = 0;
+            }
+
+            // Runner Character & Shield
+            if (gameState.hasShield) {
+                ctx.beginPath();
+                ctx.arc(runner.x + runner.width / 2, runner.y + runner.height / 2, 28, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+                ctx.fill();
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            ctx.font = "38px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(runner.emoji, runner.x + runner.width / 2, runner.y + runner.height - 5);
+
+            // 4. Distance & OPTIMIZED BATTERY CONSUMPTION
+            const effectiveDrain = gameState.drainRate / (1 + (gameState.upgrades.drainLvl - 1) * 0.30);
+            gameState.battery -= effectiveDrain;
+            gameState.distance += 2.2;
+
+            // Spawn Obstacles
+            if (frameCounter % 110 === 0) {
+                const isDrone = Math.random() > 0.5;
+                obstacles.push({
+                    x: canvas.width,
+                    y: isDrone ? groundY - 70 : groundY - 35,
+                    width: 30,
+                    height: 35,
+                    type: isDrone ? '🛸' : '🚧'
+                });
+            }
+
+            // Spawn Powerups
+            if (frameCounter % 140 === 0) {
+                const rand = Math.random();
+                let type = '⚡';
+                if (rand > 0.55) type = '🪙';
+                if (rand > 0.88) type = '🛡️';
+
+                powerups.push({
+                    x: canvas.width,
+                    y: groundY - 65,
+                    width: 25,
+                    height: 25,
+                    type: type
+                });
+            }
+
+            // 5. Update Obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= 6.0;
+
+                ctx.font = "28px Arial";
+                ctx.fillText(obs.type, obs.x + 15, obs.y + 28);
+
+                if (runner.x < obs.x + obs.width &&
+                    runner.x + runner.width > obs.x &&
+                    runner.y < obs.y + obs.height &&
+                    runner.y + runner.height > obs.y) {
+                    
+                    if (gameState.hasShield) {
+                        gameState.hasShield = false;
+                        updateShieldHud();
+                        playSound('shield');
+                    } else {
+                        gameState.battery = Math.max(0, gameState.battery - 12);
+                        playSound('wrong');
+                    }
+                    obstacles.splice(i, 1);
+                }
+
+                if (obs.x < -40) obstacles.splice(i, 1);
+            }
+
+            // 6. Update Powerups
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                let p = powerups[i];
+                p.x -= 6.0;
+
+                ctx.font = "24px Arial";
+                ctx.fillText(p.type, p.x + 12, p.y + 20);
+
+                if (runner.x < p.x + p.width &&
+                    runner.x + runner.width > p.x &&
+                    runner.y < p.y + p.height &&
+                    runner.y + runner.height > p.y) {
+                    
+                    if (p.type === '⚡') {
+                        gameState.battery = Math.min(gameState.maxBattery, gameState.battery + 25);
+                        playSound('jump');
+                    } else if (p.type === '🪙') {
+                        const coinVal = Math.round(15 * (gameState.kart === 'puma' ? 1.5 : 1.0));
+                        gameState.coins += coinVal;
+                        playSound('coin');
+                    } else if (p.type === '🛡️') {
+                        gameState.hasShield = true;
+                        updateShieldHud();
+                        playSound('shield');
+                    }
+
+                    powerups.splice(i, 1);
+                }
+
+                if (p.x < -40) powerups.splice(i, 1);
+            }
+
+            updateHUD();
+
+            // 7. Check Pit-Stop Event
+            if (gameState.battery <= 0) {
+                triggerPitStopQuestion();
+                return;
+            }
+
+            // 8. Check Victory
+            if (gameState.distance >= gameState.targetDistance) {
+                endGame(true);
+                return;
+            }
+
+            requestAnimationFrame(gameRunnerLoop);
+        }
+
+        function updateShieldHud() {
+            const sh = document.getElementById('shieldHud');
+            if (gameState.hasShield) {
+                sh.classList.remove('hidden');
+                sh.classList.add('flex');
+            } else {
+                sh.classList.add('hidden');
+                sh.classList.remove('flex');
+            }
+        }
+
+        function updateHUD() {
+            const pct = Math.max(0, Math.min(100, (gameState.battery / gameState.maxBattery) * 100));
+            const bar = document.getElementById('batteryBar');
+            bar.style.width = `${pct}%`;
+            document.getElementById('batteryText').innerText = `${Math.round(pct)}%`;
+
+            if (pct > 50) bar.className = "bg-gradient-to-r from-emerald-500 to-batteryGreen h-full rounded-full transition-all duration-300";
+            else if (pct > 20) bar.className = "bg-gradient-to-r from-yellow-500 to-amber-400 h-full rounded-full transition-all duration-300";
+            else bar.className = "bg-gradient-to-r from-red-600 to-batteryRed h-full rounded-full transition-all duration-300";
+
+            document.getElementById('distanceText').innerText = `${Math.round(gameState.distance)} / ${gameState.targetDistance}m`;
+            document.getElementById('coinsText').innerText = gameState.coins;
+        }
+
+        function triggerPitStopQuestion() {
+            gameState.active = false;
+
+            const qList = levelQuestions[gameState.level] || levelQuestions[1];
+            const q = qList[Math.floor(Math.random() * qList.length)];
+            gameState.currentQuestion = q;
+
+            document.getElementById('pitStopPortal').classList.remove('hidden');
+            document.getElementById('topicBadge').innerText = q.topic;
+            
+            // Render Prompt in Math LaTeX if applicable
+            const promptTarget = document.getElementById('questionPrompt');
+            promptTarget.innerHTML = q.prompt.replace(/\$(.*?)\$/g, (match, formula) => {
+                const span = document.createElement('span');
+                renderMath(span, formula, false);
+                return span.outerHTML;
+            });
+
+            // Render Formula in KaTeX
+            const mathTarget = document.getElementById('mathFormulaContainer');
+            renderMath(mathTarget, q.formula, true);
+
+            const grid = document.getElementById('optionsGrid');
+            grid.innerHTML = '';
+
+            const optionObjs = q.options.map((optText, idx) => ({
+                text: optText,
+                isCorrect: idx === q.correct
+            })).sort(() => Math.random() - 0.5);
+
+            optionObjs.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "p-3.5 bg-gray-800/90 hover:bg-gray-700/90 border border-gray-700 hover:border-cyan-400 rounded-2xl text-left font-medium transition flex items-center justify-between group active:scale-95";
+                
+                const spanMath = document.createElement('span');
+                spanMath.className = "text-sm md:text-base text-gray-100 group-hover:text-cyan-300 flex items-center";
+                
+                renderMath(spanMath, opt.text, false);
+
+                btn.appendChild(spanMath);
+                
+                const badge = document.createElement('span');
+                badge.className = "w-6 h-6 rounded-full bg-gray-700 text-gray-300 text-xs flex items-center justify-center font-bold ml-2 shrink-0";
+                badge.innerText = String.fromCharCode(65 + idx); // A, B, C, D
+                btn.appendChild(badge);
+
+                btn.onclick = () => submitAnswer(opt.isCorrect);
+                grid.appendChild(btn);
+            });
+        }
+
+        function submitAnswer(isCorrect) {
+            gameState.totalAnswered++;
+
+            const modal = document.getElementById('resolutionModal');
+            const title = document.getElementById('resHeaderTitle');
+            const sub = document.getElementById('resHeaderSub');
+            const badgeIcon = document.getElementById('resBadgeIcon');
+            const rewardText = document.getElementById('resBatteryReward');
+            const q = gameState.currentQuestion;
+
+            if (isCorrect) {
+                playSound('correct');
+                gameState.correctCount++;
+                gameState.battery = Math.min(gameState.maxBattery, gameState.battery + 70);
+                
+                const coinBonus = Math.round(50 * (1 + (gameState.upgrades.coinsLvl - 1) * 0.5));
+                gameState.coins += coinBonus;
+
+                title.innerText = "¡EXCELENTE! RESPUESTA CORRECTA 🎉";
+                title.className = "font-orbitron font-bold text-lg md:text-xl text-emerald-400";
+                sub.innerText = "Demostraste un dominio total de los productos notables:";
+                badgeIcon.className = "w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl font-bold";
+                badgeIcon.innerHTML = `<i class="fa-solid fa-check"></i>`;
+                rewardText.innerHTML = `<i class="fa-solid fa-battery-full text-lg text-emerald-400"></i> Batería +70% | +${coinBonus} Monedas 🪙`;
+            } else {
+                playSound('wrong');
+                gameState.battery = 50; // Recharge on wrong answer so user isn't stuck
+
+                title.innerText = "RESPUESTA INCORRECTA - ¡REVISEMOS EL PROCEDIMIENTO! 💡";
+                title.className = "font-orbitron font-bold text-lg md:text-xl text-amber-400";
+                sub.innerText = "Aquí tienes la solución paso a paso explicada detalladamente:";
+                badgeIcon.className = "w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl font-bold";
+                badgeIcon.innerHTML = `<i class="fa-solid fa-lightbulb"></i>`;
+                rewardText.innerHTML = `<i class="fa-solid fa-battery-half text-lg text-amber-400"></i> Recarga de Apoyo +50% Batería`;
+            }
+
+            const formulaBox = document.getElementById('resolutionFormulaBox');
+            renderMath(formulaBox, q.formula, true);
+
+            const stepsContainer = document.getElementById('resolutionStepsText');
+            stepsContainer.innerHTML = '';
+
+            q.explanationSteps.forEach(stepText => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = "p-3 bg-gray-800/70 rounded-xl border border-gray-700/60 leading-relaxed";
+                
+                // Parse embedded inline LaTeX $ ... $
+                stepDiv.innerHTML = stepText.replace(/\$(.*?)\$/g, (match, mathExpr) => {
+                    const span = document.createElement('span');
+                    renderMath(span, mathExpr, false);
+                    return span.outerHTML;
+                });
+
+                stepsContainer.appendChild(stepDiv);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function continueAfterResolution() {
+            document.getElementById('resolutionModal').classList.add('hidden');
+            document.getElementById('pitStopPortal').classList.add('hidden');
+
+            gameState.active = true;
+            requestAnimationFrame(gameRunnerLoop);
+        }
+
+        function openShopModal() {
+            document.getElementById('shopCoinsText').innerText = gameState.coins;
+            updateShopUI();
+            document.getElementById('shopModal').classList.remove('hidden');
+        }
+
+        function closeShopModal() {
+            document.getElementById('shopModal').classList.add('hidden');
+        }
+
+        function updateShopUI() {
+            document.getElementById('lvlCapText').innerText = `Nivel ${gameState.upgrades.capLvl}`;
+            document.getElementById('lvlJumpText').innerText = `Nivel ${gameState.upgrades.jumpLvl}`;
+            document.getElementById('lvlDrainText').innerText = `Nivel ${gameState.upgrades.drainLvl}`;
+            document.getElementById('lvlCoinsText').innerText = `Nivel ${gameState.upgrades.coinsLvl}`;
+
+            document.getElementById('costCapText').innerText = `🪙 ${gameState.upgrades.capLvl * 100}`;
+            document.getElementById('costJumpText').innerText = `🪙 ${gameState.upgrades.jumpLvl * 120}`;
+            document.getElementById('costDrainText').innerText = `🪙 ${gameState.upgrades.drainLvl * 150}`;
+            document.getElementById('costCoinsText').innerText = `🪙 ${gameState.upgrades.coinsLvl * 200}`;
+        }
+
+        function buyUpgrade(type) {
+            let cost = 0;
+            if (type === 'cap') cost = gameState.upgrades.capLvl * 100;
+            if (type === 'jump') cost = gameState.upgrades.jumpLvl * 120;
+            if (type === 'drain') cost = gameState.upgrades.drainLvl * 150;
+            if (type === 'coins') cost = gameState.upgrades.coinsLvl * 200;
+
+            if (gameState.coins >= cost) {
+                gameState.coins -= cost;
+                playSound('coin');
+
+                if (type === 'cap') { gameState.upgrades.capLvl++; gameState.maxBattery += 40; gameState.battery += 40; }
+                if (type === 'jump') { gameState.upgrades.jumpLvl++; }
+                if (type === 'drain') { gameState.upgrades.drainLvl++; }
+                if (type === 'coins') { gameState.upgrades.coinsLvl++; }
+
+                document.getElementById('shopCoinsText').innerText = gameState.coins;
+                updateShopUI();
+                updateHUD();
+            }
+        }
+
+        function openPracticeModal() {
+            const list = document.getElementById('practiceList');
+            list.innerHTML = '';
+
+            Object.keys(levelQuestions).forEach(lvl => {
+                levelQuestions[lvl].forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = "p-4 bg-gray-900 border border-gray-800 rounded-2xl space-y-2";
+                    
+                    const topic = document.createElement('div');
+                    topic.className = "text-xs font-bold text-cyan-400 uppercase tracking-wider flex justify-between items-center";
+                    
+                    const topicTitle = document.createElement('span');
+                    topicTitle.innerText = `Nivel ${lvl}: ${item.topic}`;
+                    
+                    const ansSpan = document.createElement('span');
+                    ansSpan.className = "text-amber-400 font-bold bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded";
+                    ansSpan.innerText = "Respuesta correcta: ";
+                    const mathAns = document.createElement('span');
+                    renderMath(mathAns, item.options[item.correct], false);
+                    ansSpan.appendChild(mathAns);
+
+                    topic.appendChild(topicTitle);
+                    topic.appendChild(ansSpan);
+                    
+                    const prompt = document.createElement('div');
+                    prompt.className = "text-sm text-gray-200 font-medium";
+                    prompt.innerHTML = item.prompt.replace(/\$(.*?)\$/g, (m, f) => {
+                        const s = document.createElement('span');
+                        renderMath(s, f, false);
+                        return s.outerHTML;
+                    });
+
+                    const formulaDiv = document.createElement('div');
+                    formulaDiv.className = "text-center my-2 text-amber-300 font-bold bg-black/50 p-2.5 rounded-xl border border-gray-800";
+                    renderMath(formulaDiv, item.formula, true);
+
+                    const stepsDiv = document.createElement('div');
+                    stepsDiv.className = "text-xs text-gray-300 space-y-1.5 bg-gray-800/40 p-3 rounded-xl border border-gray-700/40";
+                    
+                    item.explanationSteps.forEach(st => {
+                        const stBox = document.createElement('div');
+                        stBox.innerHTML = st.replace(/\$(.*?)\$/g, (m, f) => {
+                            const s = document.createElement('span');
+                            renderMath(s, f, false);
+                            return s.outerHTML;
+                        });
+                        stepsDiv.appendChild(stBox);
+                    });
+
+                    card.appendChild(topic);
+                    card.appendChild(prompt);
+                    card.appendChild(formulaDiv);
+                    card.appendChild(stepsDiv);
+                    list.appendChild(card);
+                });
+            });
+
+            document.getElementById('practiceModal').classList.remove('hidden');
+        }
+
+        function closePracticeModal() {
+            document.getElementById('practiceModal').classList.add('hidden');
+        }
+
+        function endGame(isVictory) {
+            gameState.active = false;
+            document.getElementById('screenGame').classList.add('hidden');
+            document.getElementById('screenResults').classList.remove('hidden');
+
+            document.getElementById('resDistance').innerText = `${Math.round(gameState.distance)} m`;
+            const accuracy = gameState.totalAnswered > 0 ? Math.round((gameState.correctCount / gameState.totalAnswered) * 100) : 100;
+            document.getElementById('resAccuracy').innerText = `${accuracy}%`;
+            document.getElementById('resQuestions').innerText = `${gameState.correctCount}/${gameState.totalAnswered}`;
+            document.getElementById('resCoins').innerText = `+${gameState.coins} 🪙`;
+
+            if (isVictory) {
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+            }
+        }
+
+        function returnToMenu() {
+            document.getElementById('screenResults').classList.add('hidden');
+            document.getElementById('screenGame').classList.add('hidden');
+            document.getElementById('screenStart').classList.start !== undefined ? document.getElementById('screenStart').classList.remove('hidden') : document.getElementById('screenStart').classList.remove('hidden');
+            document.getElementById('hudStats').classList.add('hidden');
+            document.getElementById('btnShop').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
